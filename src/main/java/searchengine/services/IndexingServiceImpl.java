@@ -60,9 +60,8 @@ public class IndexingServiceImpl implements IndexingService {
                     .setSiteUrl(url.getUrl())
                     .setStatusIndexing(StatusType.INDEXING)
                     .setStatusTime(LocalDateTime.now());
-            if (getDocumentByUrl(url.getUrl()).statusCode() < 400) {
-                siteEntity.setTextOfLastError("NULL");
-            } else {
+            if (getDocumentByUrl(url.getUrl()).statusCode() >= 400) {
+                siteEntity.setStatusIndexing(StatusType.FAILED);
                 siteEntity.setTextOfLastError(getDocumentByUrl(url.getUrl()).statusMessage());
             }
             siteRepository.save(siteEntity);
@@ -74,12 +73,18 @@ public class IndexingServiceImpl implements IndexingService {
                 String link = element.attr("href");
                 if (link.startsWith("/") && !link.contains("#")) {
                     Connection.Response response = getDocumentByUrl(url.getUrl() + link);
-                    PageEntity page = new PageEntity()
-                            .setSiteEntity(siteEntity)
-                            .setPagePath(link)
-                            .setResponseCode(response.statusCode())
-                            .setContentPage(response.body());
-                    pageRepository.save(page);
+                    if (response.statusCode() < 400) {
+                        PageEntity page = new PageEntity()
+                                .setSiteEntity(siteEntity)
+                                .setPagePath(link)
+                                .setResponseCode(response.statusCode())
+                                .setContentPage(response.body());
+                        pageRepository.save(page);
+                        siteEntity.setStatusTime(LocalDateTime.now());
+                    } else {
+                        siteEntity.setStatusIndexing(StatusType.FAILED);
+                        siteEntity.setTextOfLastError(response.statusMessage());
+                    }
 
                     siteEntity.setStatusTime(LocalDateTime.now());
                     siteRepository.save(siteEntity);
