@@ -1,4 +1,4 @@
-package searchengine.dto.indexPage;
+package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -6,10 +6,11 @@ import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import searchengine.config.*;
+import org.springframework.stereotype.Service;
+import searchengine.config.LemmaFinderSettings;
+import searchengine.config.ParticlesNames;
 import searchengine.model.IndexEntity;
 import searchengine.model.LemmaEntity;
 import searchengine.model.PageEntity;
@@ -24,16 +25,21 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-@RequiredArgsConstructor
+@Component
 public class LemmaFinder {
 
-    private final ConnectionSettings connectionSettings;
-    private final LemmaFinderSettings lemmaFinderSettings;
+    //private final ConnectionSettings connectionSettings;
+    @Autowired
+    private LemmaFinderSettings lemmaFinderSettings;
     //private final IndexProperties indexProperties;
-    private final SiteRepository siteRepository;
-    private final PageRepository pageRepository;
-    private final LemmaRepository lemmaRepository;
-    private final IndexRepository indexRepository;
+    @Autowired
+    private SiteRepository siteRepository;
+    @Autowired
+    private PageRepository pageRepository;
+    @Autowired
+    private LemmaRepository lemmaRepository;
+    @Autowired
+    private IndexRepository indexRepository;
 
     @SneakyThrows
     public HashMap<String, Integer> searchingLemmasAndTheirCount(String text) {
@@ -87,12 +93,12 @@ public class LemmaFinder {
     }
 
     @SneakyThrows
-    public void parsePageAndSaveEntitiesToDB(String pageUrl) {
-        Connection.Response pageResponse = Jsoup.connect(pageUrl)
-                                            .ignoreContentType(true)
-                                            .userAgent(connectionSettings.getUserAgent())
-                                            .referrer(connectionSettings.getReferrer())
-                                            .execute();
+    public void parsePageAndSaveEntitiesToDB(String pageUrl, Connection.Response pageResponse) {
+//        Connection.Response pageResponse = Jsoup.connect(pageUrl)
+//                                            .ignoreContentType(true)
+//                                            .userAgent(connectionSettings.getUserAgent())
+//                                            .referrer(connectionSettings.getReferrer())
+//                                            .execute();
 
         PageEntity pageEntity = new PageEntity()
                 .setSiteEntity(getSiteEntity(pageUrl))
@@ -187,3 +193,4 @@ public class LemmaFinder {
 //        return pageEntity;
 //    }
 }
+

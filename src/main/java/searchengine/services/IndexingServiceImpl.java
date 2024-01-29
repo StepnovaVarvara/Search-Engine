@@ -60,7 +60,7 @@ public class IndexingServiceImpl implements IndexingService {
         List<Site> siteList = indexProperties.getSites();
         for (Site site : siteList) {
             if (IndexProcessVariables.isRUNNING()) {
-                PageRecursiveTask pageRecursiveTask = new PageRecursiveTask(site, connectionSettings, siteRepository, indexProperties, pageRepository);
+                PageRecursiveTask pageRecursiveTask = new PageRecursiveTask(site, connectionSettings, siteRepository, indexProperties, pageRepository, true);
                 forkJoinPool.invoke(pageRecursiveTask);
             } else {
                 saveSiteToDB(site, StatusType.FAILED, indexProperties.getMessages().getStop());
