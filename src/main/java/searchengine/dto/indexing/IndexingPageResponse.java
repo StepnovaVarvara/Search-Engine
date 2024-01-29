@@ -5,6 +5,6 @@ import lombok.experimental.Accessors;
 
 @Data
 @Accessors(chain = true)
-public class IndexingResponse {
+public class IndexingPageResponse {
     private boolean result;
 }

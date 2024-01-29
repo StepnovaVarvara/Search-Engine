@@ -6,4 +6,6 @@ import searchengine.model.SiteEntity;
 
 @Repository
 public interface SiteRepository extends CrudRepository<SiteEntity, Integer> {
+    SiteEntity findBySiteUrl(String siteUrl);
+    SiteEntity findBySiteName(String pagePath);
 }

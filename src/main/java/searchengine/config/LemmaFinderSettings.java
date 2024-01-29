@@ -10,7 +10,7 @@ import java.util.List;
 @Getter
 @Setter
 @Component
-@ConfigurationProperties(prefix = "indexing-settings")
-public class SitesList {
-    private List<Site> sites;
+@ConfigurationProperties(prefix = "lemma-finder-settings")
+public class LemmaFinderSettings {
+    List<ParticlesNames> particlesNamesList;
 }

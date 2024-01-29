@@ -1,25 +1,25 @@
 package searchengine.controllers;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.annotation.*;
+import searchengine.dto.indexing.IndexingPageResponse;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.dto.statistics.StatisticsResponse;
+import searchengine.services.IndexingPageService;
 import searchengine.services.IndexingService;
 import searchengine.services.StatisticsService;
+import searchengine.services.StopIndexingService;
 
 @RestControllerAdvice
+@RequiredArgsConstructor
 @RequestMapping("/api")
 public class ApiController {
 
     private final StatisticsService statisticsService;
     private final IndexingService indexingService;
-
-    public ApiController(StatisticsService statisticsService, IndexingService indexingService) {
-        this.statisticsService = statisticsService;
-        this.indexingService = indexingService;
-    }
+    private final StopIndexingService stopIndexingService;
+    private final IndexingPageService indexingPageService;
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
@@ -30,8 +30,13 @@ public class ApiController {
     public ResponseEntity<IndexingResponse> startIndexing() {
         return ResponseEntity.ok(indexingService.startIndexing());
     }
-    @GetMapping("stopIndexing")
+    @GetMapping("/stopIndexing")
     public ResponseEntity<IndexingResponse> stopIndexing() {
-        return ResponseEntity.ok(indexingService.startIndexing());
+        return ResponseEntity.ok(stopIndexingService.stopIndexing());
+    }
+
+    @PostMapping("/indexPage")
+    public ResponseEntity<IndexingPageResponse> indexPage(@RequestParam String url) {
+        return ResponseEntity.ok(indexingPageService.startIndexingPage(url));
     }
 }

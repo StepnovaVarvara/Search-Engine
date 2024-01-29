@@ -13,15 +13,34 @@ spring:
       ddl-auto: update
     show-sql: true
 
-indexing-settings:
+indexingSettings:
   sites:
-    - url: https://www.lenta.ru
+    - url: https://lenta.ru
       name: Лента.ру
-    - url: https://www.skillbox.ru
+    - url: https://skillbox.ru
       name: Skillbox
-    - url: https://www.playback.ru
+    - url: https://playback.ru
       name: PlayBack.Ru
+  messages:
+    stop: Индексация остановлена пользователем
+    stopError: Индексация не запущена
+    startError: Индексация уже запущена
+    indexPageError: Данная страница находится за пределами сайтов, указанных в конфигурационном файле
+  thread-count:
+    countOfThread: 100
 
 connection-settings:
   userAgent: Mozilla/5.0 (Windows; U; WindowsNT5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6
   referrer: http://www.google.com
+
+lemmaFinderSettings:
+  particles-names:
+    interjection: МЕЖД
+    preposition: ПРЕДЛ
+    conjunction: СОЮЗ
+    particle: ЧАСТ
+
+db-connection-settings:
+  url: jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true
+  user: root
+  password: texttext
