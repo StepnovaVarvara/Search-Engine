@@ -7,8 +7,9 @@ import org.springframework.stereotype.Component;
 
 @Getter
 @Setter
-//@Component
-//@ConfigurationProperties(prefix = "thread-count")
-public class ThreadCount {
-    private int countOfThread;
+@Component
+@ConfigurationProperties(prefix = "statistic-settings")
+public class StatisticsProperties {
+    private Statuses statuses;
+    private StatusMessages statusMessages;
 }

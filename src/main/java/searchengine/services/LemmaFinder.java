@@ -2,15 +2,15 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
+import searchengine.config.ConnectionSettings;
 import searchengine.config.LemmaFinderSettings;
-import searchengine.config.ParticlesNames;
+import searchengine.dto.indexing.PageResponse;
 import searchengine.model.IndexEntity;
 import searchengine.model.LemmaEntity;
 import searchengine.model.PageEntity;
@@ -20,29 +20,24 @@ import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class LemmaFinder {
+    private final LemmaFinderSettings lemmaFinderSettings;
+    private final ConnectionSettings connectionSettings;
 
-    //private final ConnectionSettings connectionSettings;
-    @Autowired
-    private LemmaFinderSettings lemmaFinderSettings;
-    //private final IndexProperties indexProperties;
-    @Autowired
-    private SiteRepository siteRepository;
-    @Autowired
-    private PageRepository pageRepository;
-    @Autowired
-    private LemmaRepository lemmaRepository;
-    @Autowired
-    private IndexRepository indexRepository;
+    private final SiteRepository siteRepository;
+    private final PageRepository pageRepository;
+    private final LemmaRepository lemmaRepository;
+    private final IndexRepository indexRepository;
 
     @SneakyThrows
     public HashMap<String, Integer> searchingLemmasAndTheirCount(String text) {
+        Date startTime = new Date();
+
         HashMap<String, Integer> lemmasMap = new HashMap<>();
 
         String[] arrayWords = convertingTextToArray(text);
@@ -52,7 +47,6 @@ public class LemmaFinder {
             if (word.isBlank()) {
                 continue;
             }
-
             LuceneMorphology luceneMorph = new RussianLuceneMorphology();
             List<String> wordBaseForms = luceneMorph.getMorphInfo(word);
 
@@ -62,29 +56,45 @@ public class LemmaFinder {
 
             List<String> wordNormalFormList = luceneMorph.getNormalForms(word);
 
-            String wordInNormalForm = wordNormalFormList.get(0); // TODO почему берем только первое слово???
+            String wordInNormalForm = wordNormalFormList.get(0);
 
             if (lemmasMap.containsKey(wordInNormalForm)) {
                 lemmasMap.put(wordInNormalForm, lemmasMap.get(wordInNormalForm) + 1);
+                //log.info("Слово добавлено в мапу: {}", word);
             } else {
                 lemmasMap.put(wordInNormalForm, 1);
+                //log.info("Слово добавлено в мапу со значением 1: {}", word);
+
             }
         }
+        //log.info("Выход из перебора массива: {}", lemmasMap);
+        Date finishTime = new Date();
+        log.info("Время работы мапы: {}", finishTime.getTime() - startTime.getTime());
         return lemmasMap;
     }
+
     public boolean checkComplianceWordToParticlesNames(List<String> stringList) {
         for (String string : stringList) {
-            for (ParticlesNames particleName : lemmaFinderSettings.getParticlesNamesList()) {
-                if (string.toUpperCase().contains(particleName.getParticle())) {
+            for (String particleName : lemmaFinderSettings.getParticlesNamesList()) {
+                if (string.toUpperCase().contains(particleName)) {
                     return true;
                 }
             }
         }
         return false;
     }
+
+    @SneakyThrows
     public String getTextByPage(String pagePath) {
-        return Jsoup.parse(pagePath).text();
+        Connection.Response response = Jsoup.connect(pagePath)
+                .ignoreHttpErrors(true)
+                .userAgent(connectionSettings.getUserAgent())
+                .referrer(connectionSettings.getReferrer())
+                .execute();
+
+        return Jsoup.parse(response.body()).text();
     }
+
     public String[] convertingTextToArray(String text) {
         return text.toLowerCase(Locale.ROOT)
                 .replaceAll("([^а-я\\s])", " ")
@@ -92,70 +102,55 @@ public class LemmaFinder {
                 .split("\\s+");
     }
 
-    @SneakyThrows
-    public void parsePageAndSaveEntitiesToDB(String pageUrl, Connection.Response pageResponse) {
-//        Connection.Response pageResponse = Jsoup.connect(pageUrl)
-//                                            .ignoreContentType(true)
-//                                            .userAgent(connectionSettings.getUserAgent())
-//                                            .referrer(connectionSettings.getReferrer())
-//                                            .execute();
+    public void parsePageAndSaveEntitiesToDB(String pageUrl, PageResponse pageResponse, int siteId) {
+            PageEntity pageEntity = new PageEntity()
+                    .setSiteEntity(getSiteEntity(siteId))
+                    .setPagePath(getPagePath(pageUrl))
+                    .setResponseCode(pageResponse.getStatusCode())
+                    .setContentPage(pageResponse.getBody());
+            pageRepository.save(pageEntity);
+            //log.info("Страница сохранена: {}", pageEntity);
 
-        PageEntity pageEntity = new PageEntity()
-                .setSiteEntity(getSiteEntity(pageUrl))
-                .setPagePath(getPagePath(pageUrl))
-                .setResponseCode(pageResponse.statusCode())
-                .setContentPage(pageResponse.body());
-        pageRepository.save(pageEntity);
+            String pageText = getTextByPage(pageUrl);
 
-        String pageText = getTextByPage(pageUrl);
+            HashMap<String, Integer> pageLemmasMap = searchingLemmasAndTheirCount(pageText);
 
-        HashMap<String, Integer> pageLemmasMap = searchingLemmasAndTheirCount(pageText);
+            for (Map.Entry<String, Integer> pair : pageLemmasMap.entrySet()) {
 
-        for (Map.Entry<String, Integer> pair : pageLemmasMap.entrySet()) {
-
-            LemmaEntity lemmaEntity = new LemmaEntity()
-                    .setSite(getSiteEntity(pageUrl))
-                    .setLemmaName(pair.getKey());
-            if (hasLemmaInDB(lemmaEntity.getLemmaName())) {
-                lemmaEntity.setCountOfWordsPerPage(lemmaEntity.getCountOfWordsPerPage() + 1);
-            } else {
-                lemmaEntity.setCountOfWordsPerPage(1);
-            }
-            lemmaRepository.save(lemmaEntity);
-
-            indexRepository.save(new IndexEntity()
-                    .setPage(getPageEntity(pageUrl))
-                    .setLemma(lemmaEntity)
-                    .setCountOfLemmaForPage(pair.getValue()));
-        }
-    }
-    public SiteEntity getSiteEntity(String pagePath) {
-        return siteRepository.findBySiteUrl(getPageDomain(pagePath));
-    }
-    public PageEntity getPageEntity(String pagePath) {
-        return pageRepository.findByPagePath(getPagePath(pagePath));
-    }
-    public String getPageDomain(String pagePath) {
-        String[] array = pagePath.split("\\/+");
-        StringBuilder stringBuilder = new StringBuilder();
-
-        if (array.length > 2) {
-            for (int i = 0; i < array.length; i++) {
-                if (i >= 2) {
-                    break;
-                }
-                if (i == 0) {
-                    stringBuilder.append(array[i] + "//");
+                if (!hasLemmaInDB(pair.getKey())) {
+                    LemmaEntity lemmaEntity = new LemmaEntity()
+                            .setSite(getSiteEntity(siteId))
+                            .setLemmaName(pair.getKey())
+                            .setCountOfWordsPerPage(1);
+                    lemmaRepository.save(lemmaEntity);
+                    //log.info("Лемма сохранена с 1: {}", lemmaEntity);
                 } else {
-                    stringBuilder.append(array[i]);
+                    LemmaEntity lemmaEntity = getLemmaEntity(pair.getKey());
+                    lemmaEntity.setCountOfWordsPerPage(lemmaEntity.getCountOfWordsPerPage() + 1);
+                    lemmaRepository.save(lemmaEntity);
+                    //log.info("Лемма сохранена в БД: {}", lemmaEntity);
                 }
+                indexRepository.save(new IndexEntity()
+                        .setPage(pageEntity)
+                        .setLemma(getLemmaEntity(pair.getKey()))
+                        .setCountOfLemmaForPage(pair.getValue()));
+                //log.info("Индекс сохранен");
             }
-        }
-        return stringBuilder.toString();
+        log.info("Информация сохранена в БД");
     }
+
+    public SiteEntity getSiteEntity(int siteId) {
+        return siteRepository.findById(siteId).get();
+    }
+
     public boolean hasLemmaInDB(String lemmaName) {
         return lemmaRepository.findByLemmaName(lemmaName) != null;
     }
+
+    public LemmaEntity getLemmaEntity(String lemmaName) {
+        return lemmaRepository.findByLemmaName(lemmaName);
+    }
+
     public String getPagePath(String pageUrl) {
         String[] array = pageUrl.split("\\/+");
         StringBuilder stringBuilder = new StringBuilder();
@@ -172,25 +167,5 @@ public class LemmaFinder {
         }
         return stringBuilder.toString();
     }
-//    public SiteEntity getSiteId(String pageUrl) {
-//        List<Site> siteList = indexProperties.getSites();
-//        SiteEntity siteEntity = null;
-//        for (Site site : siteList) {
-//            if (pageUrl.contains(site.getUrl())) {
-//                siteEntity = siteRepository.findBySiteUrl(site.getUrl());
-//            }
-//        }
-//        return siteEntity;
-//    }
-//    public PageEntity getPageId(String pageUrl) {
-//        Iterable<PageEntity> pageEntities = pageRepository.findAll();
-//        PageEntity pageEntity = null;
-//        for (PageEntity page : pageEntities) {
-//            if (pageUrl.contains(page.getPagePath())) {
-//                pageEntity = pageRepository.findByPagePath(page.getPagePath());
-//            }
-//        }
-//        return pageEntity;
-//    }
 }
 

@@ -1,9 +1,5 @@
 package searchengine.variables;
 
-import lombok.RequiredArgsConstructor;
-import searchengine.config.IndexProperties;
-import searchengine.config.ThreadCount;
-
 import java.util.concurrent.ForkJoinPool;
 
 public class FJP {

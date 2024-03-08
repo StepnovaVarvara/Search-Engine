@@ -1,11 +1,10 @@
-package searchengine.dto.indexing;
+package searchengine.dto.indexPage;
 
 import lombok.Data;
 import lombok.experimental.Accessors;
 
 @Data
 @Accessors(chain = true)
-public class ErrorIndexingPageResponse {
+public class IndexingPageResponse {
     private boolean result;
-    private String error;
 }

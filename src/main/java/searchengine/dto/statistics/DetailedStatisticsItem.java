@@ -1,8 +1,10 @@
 package searchengine.dto.statistics;
 
 import lombok.Data;
+import lombok.experimental.Accessors;
 
 @Data
+@Accessors(chain = true)
 public class DetailedStatisticsItem {
     private String url;
     private String name;

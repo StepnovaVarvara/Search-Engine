@@ -2,8 +2,6 @@ package searchengine.variables;
 
 import lombok.Getter;
 
-import java.util.concurrent.ForkJoinPool;
-
 public class IndexProcessVariables {
     @Getter
     private static boolean RUNNING;
@@ -13,6 +11,4 @@ public class IndexProcessVariables {
     }
 
     public static final String STOP_MESSAGE = "Индексация остановлена пользователем";
-
-    //public static ForkJoinPool forkJoinPoolPage = new ForkJoinPool(1000);
 }

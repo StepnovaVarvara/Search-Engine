@@ -18,12 +18,12 @@ public class IndexEntity {
     private int id;
 
     @NotNull
-    @ManyToOne(cascade = CascadeType.DETACH, fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "page_id")
     private PageEntity page;
 
     @NotNull
-    @ManyToOne(cascade = CascadeType.DETACH, fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lemma_id")
     private LemmaEntity lemma;
 

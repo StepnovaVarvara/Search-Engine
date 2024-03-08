@@ -6,6 +6,7 @@ import lombok.experimental.Accessors;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
+import java.util.List;
 
 @Getter
 @Setter
@@ -18,7 +19,7 @@ public class PageEntity {
     private int id;
 
     @NotNull
-    @ManyToOne(cascade = CascadeType.DETACH, fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "site_id")
     private SiteEntity siteEntity;
 
@@ -32,4 +33,7 @@ public class PageEntity {
     @NotNull
     @Column(name = "content", columnDefinition = "MEDIUMTEXT")
     private String contentPage;
+
+    @OneToMany(cascade = CascadeType.REMOVE, mappedBy = "page")
+    private List<IndexEntity> indexEntityList;
 }

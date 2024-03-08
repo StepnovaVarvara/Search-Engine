@@ -12,5 +12,5 @@ import java.util.List;
 @Component
 @ConfigurationProperties(prefix = "lemma-finder-settings")
 public class LemmaFinderSettings {
-    List<ParticlesNames> particlesNamesList;
+    List<String> particlesNamesList;
 }

@@ -7,6 +7,7 @@ import lombok.experimental.Accessors;
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -37,4 +38,10 @@ public class SiteEntity {
     @NotNull
     @Column(name = "name", columnDefinition = "VARCHAR(255)")
     private String siteName;
+
+    @OneToMany(cascade = CascadeType.REMOVE, mappedBy = "siteEntity")
+    private List<PageEntity> pageEntityList;
+
+    @OneToMany(cascade = CascadeType.REMOVE, mappedBy = "site")
+    private List<LemmaEntity> lemmaEntityList;
 }

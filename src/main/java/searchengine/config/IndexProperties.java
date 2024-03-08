@@ -14,6 +14,4 @@ import java.util.List;
 public class IndexProperties {
     private List<Site> sites;
     private Messages messages;
-    private ThreadCount threadCount;
-    //count ADD
 }

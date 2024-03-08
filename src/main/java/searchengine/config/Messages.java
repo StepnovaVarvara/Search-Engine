@@ -10,4 +10,8 @@ public class Messages {
     private String stopError;
     private String startError;
     private String indexPageError;
+    private String searchError;
+    private String siteNotFound;
+    private String sitesNotIndexing;
+    private String offsetError;
 }

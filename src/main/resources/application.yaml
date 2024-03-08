@@ -26,21 +26,31 @@ indexingSettings:
     stopError: Индексация не запущена
     startError: Индексация уже запущена
     indexPageError: Данная страница находится за пределами сайтов, указанных в конфигурационном файле
-  thread-count:
-    countOfThread: 100
+    searchError: Задан пустой поисковой запрос
+    siteNotFound: В базе данных нет сайта
+    sitesNotIndexing: Все сайты из конфигурации не проиндексированы
+    offsetError: Параметр offset больше длины списка объектов
+
+statisticSettings:
+  statuses:
+    indexing: INDEXING
+    indexed: INDEXED
+    failed: FAILED
+    warning: WARNING
+  statusMessages:
+    siteUnavailable: 'Ошибка индексации: сайт не доступен'
+    mainPageUnavailable: 'Ошибка индексации: главная страница сайта не доступна'
+    ok: ''
+    warning: 'Сайт не проиндексирован'
+
 
 connection-settings:
   userAgent: Mozilla/5.0 (Windows; U; WindowsNT5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6
   referrer: http://www.google.com
 
 lemmaFinderSettings:
-  particles-names:
-    interjection: МЕЖД
-    preposition: ПРЕДЛ
-    conjunction: СОЮЗ
-    particle: ЧАСТ
-
-db-connection-settings:
-  url: jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true
-  user: root
-  password: texttext
+  particlesNamesList:
+    - 'МЕЖД'
+    - 'ПРЕДЛ'
+    - 'СОЮЗ'
+    - 'ЧАСТ'
