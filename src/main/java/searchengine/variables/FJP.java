@@ -1,15 +1,24 @@
 package searchengine.variables;
 
+import lombok.Data;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+
 import java.util.concurrent.ForkJoinPool;
 
-public class FJP {
+@Data
+@Slf4j
+public final class FJP {
     private static ForkJoinPool INSTANCE;
 
-    //TODO 10 get from application yalm
-
+//    @Value("${thread.count}")
+    private static int threadCount = 6; //TODO не получается присвоить переменной
+                                        // значение из конфигурационного файла > выдает 0
     public static ForkJoinPool getInstance() {
-        if (INSTANCE == null) {
-            INSTANCE = new ForkJoinPool(50);
+        log.info("Кол-во тредов > {}", threadCount);
+        if (INSTANCE == null || INSTANCE.isShutdown()) {
+            INSTANCE = new ForkJoinPool(threadCount);
         }
         return INSTANCE;
     }

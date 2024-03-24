@@ -37,6 +37,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     @SneakyThrows
     @Override
     public StatisticsResponse getStatistics() {
+        log.info("getStatistics > начал работу");
 
         TotalStatistics total = new TotalStatistics();
         total.setSites(sites.getSites().size());
@@ -75,7 +76,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             } else {
                 item.setName(site.getName());
                 item.setUrl(site.getUrl());
-                item.setStatus(statisticsProperties.getStatuses().getWarning());
+                //item.setStatus(statisticsProperties.getStatuses().getWarning());
                 item.setError(statisticsProperties.getStatusMessages().getWarning());
             }
 
@@ -88,6 +89,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         data.setDetailed(detailed);
         response.setStatistics(data);
         response.setResult(true);
+        log.info("getStatistics > завершился");
         return response;
     }
 

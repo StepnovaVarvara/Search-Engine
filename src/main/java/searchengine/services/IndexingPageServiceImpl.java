@@ -2,38 +2,51 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.springframework.stereotype.Service;
 import searchengine.config.*;
 import searchengine.dto.indexPage.IndexingPageResponse;
 import searchengine.dto.indexing.PageResponse;
+import searchengine.exceptions.BadRequestException;
 import searchengine.exceptions.IndexingPageException;
 import searchengine.model.*;
 import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
+import searchengine.variables.IndexProcessVariables;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class IndexingPageServiceImpl implements IndexingPageService {
 
     private final IndexProperties indexProperties;
+    private final ExceptionProperties exceptionProperties;
     private final ConnectionSettings connectionSettings;
+    private final LemmaFinderSettings lemmaFinderSettings;
 
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
 
-    private final LemmaFinderSettings lemmaFinderSettings;
-
     @Override
     public IndexingPageResponse startIndexingPage(String pagePath) {
+        log.info("startIndexingPage > начал работу: {}", IndexProcessVariables.isRUNNING());
+        try {
+            new URL(pagePath);
+        } catch (MalformedURLException e) {
+            throw new BadRequestException(exceptionProperties.getExceptionMessages().getBadRequest());
+        }
+
         if (!hasSiteInConfiguration(pagePath)) {
             throw new IndexingPageException(indexProperties.getMessages().getIndexPageError());
         } else {
@@ -44,7 +57,7 @@ public class IndexingPageServiceImpl implements IndexingPageService {
             if (pageResponse.getStatusCode() < 400) {
 
                 if (hasPageInDB(getLink(pagePath))) {
-                    deleteLemmaEntity(pagePath);
+                    deleteLemmaEntityFromDB(pagePath); // TODO не догадалась как сделать проще
                     indexRepository.deleteAllByPage(pageRepository.findByPagePath(getLink(pagePath)));
                     pageRepository.delete(pageRepository.findByPagePath(getLink(pagePath)));
                 }
@@ -64,10 +77,11 @@ public class IndexingPageServiceImpl implements IndexingPageService {
                 lemmaFinder.parsePageAndSaveEntitiesToDB(pagePath, pageResponse, getSiteEntity(pagePath).getId());
             }
 
+            log.info("startIndexingPage > завершился: {}", IndexProcessVariables.isRUNNING());
             return indexingPageResponse;
         }
     }
-    public void deleteLemmaEntity(String pagePath) {
+    public void deleteLemmaEntityFromDB(String pagePath) {
         PageEntity pageEntity = pageRepository.findByPagePath(getLink(pagePath));
 
         List<IndexEntity> indexEntityList = indexRepository.findAllByPage(pageEntity);

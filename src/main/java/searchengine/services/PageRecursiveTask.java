@@ -2,28 +2,25 @@ package searchengine.services;
 
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import searchengine.config.ConnectionSettings;
-import searchengine.config.IndexProperties;
-import searchengine.config.LemmaFinderSettings;
-import searchengine.config.Site;
+import searchengine.config.*;
 import searchengine.dto.indexing.PageResponse;
 import searchengine.model.*;
 import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
+import searchengine.variables.FJP;
 import searchengine.variables.IndexProcessVariables;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.RecursiveAction;
 
 @Slf4j
@@ -38,15 +35,17 @@ public class PageRecursiveTask extends RecursiveAction {
     private LemmaRepository lemmaRepository;
     private IndexRepository indexRepository;
     private LemmaFinderSettings lemmaFinderSettings;
-    private boolean choose;
+    private PageRecursiveTaskProperties pageRecursiveTaskProperties;
+    private boolean isSite;
     private int siteId;
     private PageResponse response;
+    private FJP fjp;
 
     public PageRecursiveTask(String page, SiteRepository siteRepository, PageRepository pageRepository,
                              LuceneMorphology luceneMorphology, LemmaRepository lemmaRepository,
                              IndexRepository indexRepository, LemmaFinderSettings lemmaFinderSettings,
-                             boolean choose, int siteId, PageResponse response,
-                             ConnectionSettings connectionSettings) {
+                             boolean isSite, int siteId, PageResponse response,
+                             ConnectionSettings connectionSettings, PageRecursiveTaskProperties pageRecursiveTaskProperties, FJP fjp) {
         this.page = page;
         this.siteRepository = siteRepository;
         this.pageRepository = pageRepository;
@@ -54,30 +53,34 @@ public class PageRecursiveTask extends RecursiveAction {
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
         this.lemmaFinderSettings = lemmaFinderSettings;
-        this.choose = choose;
+        this.isSite = isSite;
         this.siteId = siteId;
         this.response = response;
         this.connectionSettings = connectionSettings;
+        this.pageRecursiveTaskProperties = pageRecursiveTaskProperties;
+        this.fjp = fjp;
     }
 
     public PageRecursiveTask(Site site, ConnectionSettings connectionSettings, SiteRepository siteRepository,
-                             IndexProperties indexProperties, PageRepository pageRepository, boolean choose,
-                             LemmaRepository lemmaRepository, IndexRepository indexRepository, LemmaFinderSettings lemmaFinderSettings) {
+                             IndexProperties indexProperties, PageRepository pageRepository, boolean isSite,
+                             LemmaRepository lemmaRepository, IndexRepository indexRepository,
+                             LemmaFinderSettings lemmaFinderSettings, PageRecursiveTaskProperties pageRecursiveTaskProperties) {
         this.site = site;
         this.connectionSettings = connectionSettings;
         this.siteRepository = siteRepository;
         this.indexProperties = indexProperties;
         this.pageRepository = pageRepository;
-        this.choose = choose;
+        this.isSite = isSite;
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
         this.lemmaFinderSettings = lemmaFinderSettings;
+        this.pageRecursiveTaskProperties = pageRecursiveTaskProperties;
     }
 
     @SneakyThrows
     @Override
     protected void compute() {
-        if (choose) {
+        if (isSite) {
             List<PageRecursiveTask> taskList = new ArrayList<>();
 
             Connection.Response siteResponse = getConnectToUrl(site.getUrl());
@@ -92,30 +95,33 @@ public class PageRecursiveTask extends RecursiveAction {
                         .setStatusTime(LocalDateTime.now());
                 siteRepository.save(siteEntity);
 
+                Set<String> pageSet = new HashSet<>();
                 Elements elements = document.select("a");
-                // Elements - eto massiv
-                // Set - eto massiv gde net povtoreniy
-                HashMap<String, Element> aaaa = new HashMap<>();
-
-
                 for (Element element : elements) {
                     if (!IndexProcessVariables.isRUNNING()) {
                         siteEntity.setStatusIndexing(StatusType.FAILED);
                         siteEntity.setTextOfLastError(indexProperties.getMessages().getStop());
+                        log.info("Время выхода из таски > {}", new Date());
                         break;
                     } else {
                         Thread.sleep(500);
 
                         String page = element.attr("href");
-                        if (page.startsWith("/") && !page.contains("#")) {
-                            if (!hasPageToDB(page, siteEntity)) { //TODO перепроверить IndexPage
+                        if (page.endsWith("/") && page.length() != 1) {
+                            page = StringUtils.substring(page, 0, page.length() - 1);
+                            // TODO необязаельная проверка, иногда попадаются одинаковые page,
+                            //  отличающиеся только слешом в конце (например, /contacts и /contacts/)
+                        }
+                        if (page.startsWith("/") && !page.contains("#") && !hasExtension(page) && !pageSet.contains(page)) {
+                            if (!hasPageInDB(page, siteEntity)) {
+                                pageSet.add(page);
 
                                 PageResponse pageResponse = new PageResponse(getConnectToUrl(site.getUrl() + page));
 
                                 if (pageResponse.getStatusCode() < 400) {
                                     PageRecursiveTask pageRecursiveTask = new PageRecursiveTask(site.getUrl() + page, siteRepository,
                                             pageRepository, luceneMorphology, lemmaRepository, indexRepository, lemmaFinderSettings,
-                                            false, siteEntity.getId(), pageResponse, connectionSettings);
+                                            false, siteEntity.getId(), pageResponse, connectionSettings, pageRecursiveTaskProperties, fjp);
                                     pageRecursiveTask.fork();
 
                                     taskList.add(pageRecursiveTask);
@@ -129,28 +135,27 @@ public class PageRecursiveTask extends RecursiveAction {
                 }
                 if (IndexProcessVariables.isRUNNING()) {
                     siteRepository.save(siteEntity.setStatusIndexing(StatusType.INDEXED));
-                    log.info("INDEXED");
                 }
             }
             if (siteResponse.statusCode() >= 400) {
                 saveSiteToDB(site, StatusType.FAILED, siteResponse.statusMessage());
             }
             for (PageRecursiveTask task : taskList) {
-                task.join();
+                if (IndexProcessVariables.isRUNNING()) {
+                    task.join();
+                }
             }
         } else {
-            LemmaFinder lemmaFinder = new LemmaFinder(lemmaFinderSettings, connectionSettings,
-                    siteRepository, pageRepository, lemmaRepository, indexRepository);
+            if (IndexProcessVariables.isRUNNING()) {
+                LemmaFinder lemmaFinder = new LemmaFinder(lemmaFinderSettings, connectionSettings,
+                        siteRepository, pageRepository, lemmaRepository, indexRepository);
 
                 lemmaFinder.parsePageAndSaveEntitiesToDB(page, response, siteId);
 
-            SiteEntity siteEntity = siteRepository.findById(siteId).get();
-            siteRepository.save(siteEntity.setStatusTime(LocalDateTime.now()));
+                SiteEntity siteEntity = siteRepository.findById(siteId).get();
+                siteRepository.save(siteEntity.setStatusTime(LocalDateTime.now()));
+            }
         }
-//        if (IndexProcessVariables.isRUNNING()) {
-//            siteRepository.save(siteRepository.findBySiteUrl(site.getUrl()).setStatusIndexing(StatusType.INDEXED));
-//            log.info("INDEXED"); // TODO проверить работу!!!
-//        }
     }
 
     @SneakyThrows
@@ -171,7 +176,16 @@ public class PageRecursiveTask extends RecursiveAction {
                 .setStatusTime(LocalDateTime.now()));
     }
 
-    public boolean hasPageToDB(String page, SiteEntity siteEntity) {
+    public boolean hasPageInDB(String page, SiteEntity siteEntity) {
         return pageRepository.findByPagePathAndSiteEntity(page, siteEntity) != null;
+    }
+
+    public boolean hasExtension(String page) {
+        for (String extension : pageRecursiveTaskProperties.getExtensionsList()) {
+            if (page.contains(extension)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

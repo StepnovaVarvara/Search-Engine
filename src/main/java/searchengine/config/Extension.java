@@ -5,6 +5,6 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class ParticlesNames {
-    private String particleName;
+public class Extension {
+    private String extension;
 }

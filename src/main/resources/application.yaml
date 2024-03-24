@@ -11,16 +11,19 @@ spring:
         dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
 
 indexingSettings:
   sites:
-    - url: https://lenta.ru
-      name: Лента.ру
-    - url: https://skillbox.ru
-      name: Skillbox
+    - url: https://www.paleo.ru
+      name: Палеонтологический институт РАН
+#    - url: https://www.worldclass.ru
+#      name: World Class
     - url: https://playback.ru
       name: PlayBack.Ru
+#    - url: https://www.skillbox.ru
+#      name: Skillbox
+
   messages:
     stop: Индексация остановлена пользователем
     stopError: Индексация не запущена
@@ -43,6 +46,12 @@ statisticSettings:
     ok: ''
     warning: 'Сайт не проиндексирован'
 
+exceptionSettings:
+  exceptionMessages:
+    badRequest: 'Неправильный запрос'
+
+thread:
+  count: 6
 
 connection-settings:
   userAgent: Mozilla/5.0 (Windows; U; WindowsNT5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6
@@ -54,3 +63,19 @@ lemmaFinderSettings:
     - 'ПРЕДЛ'
     - 'СОЮЗ'
     - 'ЧАСТ'
+
+pageRecursiveTaskSettings:
+  extensionsList:
+    - 'jpg'
+    - 'JPG'
+    - 'jpeg'
+    - 'JPEG'
+    - 'gif'
+    - 'GIF'
+    - 'png'
+    - 'PNG'
+    - 'pdf'
+    - 'PDF'
+    - 'svg'
+    - 'SVG'
+    - 'zip'

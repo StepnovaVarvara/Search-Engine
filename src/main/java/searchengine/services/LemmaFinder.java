@@ -19,6 +19,7 @@ import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
+import searchengine.variables.IndexProcessVariables;
 
 import java.util.*;
 
@@ -39,10 +40,11 @@ public class LemmaFinder {
         Date startTime = new Date();
 
         HashMap<String, Integer> lemmasMap = new HashMap<>();
-
         String[] arrayWords = convertingTextToArray(text);
 
         for (String word : arrayWords) {
+            //log.info("Процесс запущен? > {}", IndexProcessVariables.isRUNNING());
+            if (!IndexProcessVariables.isRUNNING()) break;
 
             if (word.isBlank()) {
                 continue;
@@ -60,14 +62,10 @@ public class LemmaFinder {
 
             if (lemmasMap.containsKey(wordInNormalForm)) {
                 lemmasMap.put(wordInNormalForm, lemmasMap.get(wordInNormalForm) + 1);
-                //log.info("Слово добавлено в мапу: {}", word);
             } else {
                 lemmasMap.put(wordInNormalForm, 1);
-                //log.info("Слово добавлено в мапу со значением 1: {}", word);
-
             }
         }
-        //log.info("Выход из перебора массива: {}", lemmasMap);
         Date finishTime = new Date();
         log.info("Время работы мапы: {}", finishTime.getTime() - startTime.getTime());
         return lemmasMap;
@@ -103,39 +101,36 @@ public class LemmaFinder {
     }
 
     public void parsePageAndSaveEntitiesToDB(String pageUrl, PageResponse pageResponse, int siteId) {
-            PageEntity pageEntity = new PageEntity()
-                    .setSiteEntity(getSiteEntity(siteId))
-                    .setPagePath(getPagePath(pageUrl))
-                    .setResponseCode(pageResponse.getStatusCode())
-                    .setContentPage(pageResponse.getBody());
-            pageRepository.save(pageEntity);
-            //log.info("Страница сохранена: {}", pageEntity);
+        PageEntity pageEntity = new PageEntity()
+                .setSiteEntity(getSiteEntity(siteId))
+                .setPagePath(getPagePath(pageUrl))
+                .setResponseCode(pageResponse.getStatusCode())
+                .setContentPage(pageResponse.getBody());
+        pageRepository.save(pageEntity);
 
-            String pageText = getTextByPage(pageUrl);
+        String pageText = getTextByPage(pageUrl);
 
-            HashMap<String, Integer> pageLemmasMap = searchingLemmasAndTheirCount(pageText);
+        HashMap<String, Integer> pageLemmasMap = searchingLemmasAndTheirCount(pageText);
 
-            for (Map.Entry<String, Integer> pair : pageLemmasMap.entrySet()) {
+        for (Map.Entry<String, Integer> pair : pageLemmasMap.entrySet()) {
+            if (!IndexProcessVariables.isRUNNING()) break;
 
-                if (!hasLemmaInDB(pair.getKey())) {
-                    LemmaEntity lemmaEntity = new LemmaEntity()
-                            .setSite(getSiteEntity(siteId))
-                            .setLemmaName(pair.getKey())
-                            .setCountOfWordsPerPage(1);
-                    lemmaRepository.save(lemmaEntity);
-                    //log.info("Лемма сохранена с 1: {}", lemmaEntity);
-                } else {
-                    LemmaEntity lemmaEntity = getLemmaEntity(pair.getKey());
-                    lemmaEntity.setCountOfWordsPerPage(lemmaEntity.getCountOfWordsPerPage() + 1);
-                    lemmaRepository.save(lemmaEntity);
-                    //log.info("Лемма сохранена в БД: {}", lemmaEntity);
-                }
-                indexRepository.save(new IndexEntity()
-                        .setPage(pageEntity)
-                        .setLemma(getLemmaEntity(pair.getKey()))
-                        .setCountOfLemmaForPage(pair.getValue()));
-                //log.info("Индекс сохранен");
+            if (!hasLemmaInDB(pair.getKey(), siteId)) {
+                LemmaEntity lemmaEntity = new LemmaEntity()
+                        .setSite(getSiteEntity(siteId))
+                        .setLemmaName(pair.getKey())
+                        .setFrequency(1);
+                lemmaRepository.save(lemmaEntity);
+            } else {
+                LemmaEntity lemmaEntity = getLemmaEntity(pair.getKey(), siteId);
+                lemmaEntity.setFrequency(lemmaEntity.getFrequency() + 1);
+                lemmaRepository.save(lemmaEntity);
             }
+            indexRepository.save(new IndexEntity()
+                    .setPage(pageEntity)
+                    .setLemma(getLemmaEntity(pair.getKey(), siteId))
+                    .setCountOfLemmaForPage(pair.getValue()));
+        }
         log.info("Информация сохранена в БД");
     }
 
@@ -143,12 +138,12 @@ public class LemmaFinder {
         return siteRepository.findById(siteId).get();
     }
 
-    public boolean hasLemmaInDB(String lemmaName) {
-        return lemmaRepository.findByLemmaName(lemmaName) != null;
+    public boolean hasLemmaInDB(String lemmaName, int siteId) {
+        return lemmaRepository.findAllByLemmaNameAndSiteId(lemmaName, siteId) != null;
     }
 
-    public LemmaEntity getLemmaEntity(String lemmaName) {
-        return lemmaRepository.findByLemmaName(lemmaName);
+    public LemmaEntity getLemmaEntity(String lemmaName, int siteId) {
+        return lemmaRepository.findAllByLemmaNameAndSiteId(lemmaName, siteId);
     }
 
     public String getPagePath(String pageUrl) {
@@ -168,4 +163,3 @@ public class LemmaFinder {
         return stringBuilder.toString();
     }
 }
-

@@ -10,9 +10,6 @@ import searchengine.dto.search.SearchResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.*;
 
-import javax.validation.constraints.NotEmpty;
-import java.util.concurrent.ExecutionException;
-
 @Slf4j
 @RestControllerAdvice
 @RequiredArgsConstructor
@@ -42,6 +39,7 @@ public class ApiController {
 
     @PostMapping("/indexPage")
     public ResponseEntity<IndexingPageResponse> indexPage(@RequestParam String url) {
+        log.info("indexPage > url: {}", url);
         return ResponseEntity.ok(indexingPageService.startIndexingPage(url));
     }
 
@@ -50,6 +48,9 @@ public class ApiController {
                                                  @RequestParam(value = "site", required = false)  String site,
                                                  @RequestParam int offset, @RequestParam int limit) {
         log.info("search > site: {}", site);
+        log.info("search > query: {}", query);
+        log.info("search > offset: {}", offset);
+        log.info("search > limit: {}", limit);
         return ResponseEntity.ok(searchService.search(query, site, offset, limit));
     }
 }

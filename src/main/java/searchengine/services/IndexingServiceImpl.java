@@ -4,10 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import searchengine.config.ConnectionSettings;
-import searchengine.config.LemmaFinderSettings;
-import searchengine.config.Site;
-import searchengine.config.IndexProperties;
+import searchengine.config.*;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.exceptions.IndexingException;
 import searchengine.model.SiteEntity;
@@ -16,12 +13,11 @@ import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
+import searchengine.variables.FJP;
 import searchengine.variables.IndexProcessVariables;
 
 import java.time.LocalDateTime;
-import java.util.Date;
 import java.util.List;
-import java.util.concurrent.ForkJoinPool;
 
 @Slf4j
 @Service
@@ -37,19 +33,34 @@ public class IndexingServiceImpl implements IndexingService {
 
     private final ConnectionSettings connectionSettings;
     private final LemmaFinderSettings lemmaFinderSettings;
-    private static final ForkJoinPool forkJoinPool = new ForkJoinPool(6);
+    private final PageRecursiveTaskProperties pageRecursiveTaskProperties;
 
+    @SneakyThrows
     @Override
     public IndexingResponse startIndexing() {
-        if (IndexProcessVariables.isRUNNING()) {
+        if (FJP.getInstance().getActiveThreadCount() > 0) {
+            IndexProcessVariables.setRUNNING(false);
+
+            Thread.sleep(1500);
+            FJP.getInstance().shutdownNow();
+
+            while (FJP.getInstance().getActiveThreadCount() > 0) {
+                // TODO как сделать не бесконечный цикл? Только расчетным путем?
+            }
+            log.info("Потоки FJP остановаились: {}", FJP.getInstance().getActiveThreadCount());
+
+            Thread.sleep(1500);
             indexingSites();
+            log.info("startIndexing > повторно запустился");
             throw new IndexingException(indexProperties.getMessages().getStartError());
         } else {
             IndexingResponse indexingResponse = new IndexingResponse();
             indexingResponse.setResult(true);
+            log.info("startIndexing > начал работу: {}", IndexProcessVariables.isRUNNING());
 
             indexingSites();
 
+            log.info("startIndexing > завершился: {}", IndexProcessVariables.isRUNNING());
             return indexingResponse;
         }
     }
@@ -57,26 +68,25 @@ public class IndexingServiceImpl implements IndexingService {
     @SneakyThrows
     public void indexingSites() {
         IndexProcessVariables.setRUNNING(true);
-        Date start = new Date();
+        log.info("indexingSites > начал работу: {}", IndexProcessVariables.isRUNNING());
 
-        pageRepository.deleteAll();
         siteRepository.deleteAll();
+        pageRepository.deleteAll();
 
         List<Site> siteList = indexProperties.getSites();
         for (Site site : siteList) {
             if (IndexProcessVariables.isRUNNING()) {
-                PageRecursiveTask pageRecursiveTask = new PageRecursiveTask(site, connectionSettings, siteRepository,
-                        indexProperties, pageRepository, true, lemmaRepository, indexRepository, lemmaFinderSettings);
-                forkJoinPool.invoke(pageRecursiveTask);
+                PageRecursiveTask pageRecursiveTask = new PageRecursiveTask(site, connectionSettings,
+                        siteRepository, indexProperties, pageRepository, true,
+                        lemmaRepository, indexRepository, lemmaFinderSettings, pageRecursiveTaskProperties);
+                FJP.getInstance().invoke(pageRecursiveTask);
             } else {
                 saveSiteToDB(site, StatusType.FAILED, indexProperties.getMessages().getStop());
             }
         }
 
-        Date finish = new Date();
-        log.info("Index finish with time: {} ms", (finish.getTime() - start.getTime()));
-
         IndexProcessVariables.setRUNNING(false);
+        log.info("indexingSites > завершился: {}", IndexProcessVariables.isRUNNING());
     }
 
     private void saveSiteToDB(Site site, StatusType statusType, String textOfLastError) {
@@ -87,4 +97,27 @@ public class IndexingServiceImpl implements IndexingService {
                 .setTextOfLastError(textOfLastError)
                 .setStatusTime(LocalDateTime.now()));
     }
+//    private String getSiteUrl(Site site) {
+//        String siteUrl = null;
+//        String regex = ".*\\bwww.\\b.*";
+//        Pattern pattern = Pattern.compile(regex);
+//
+//        String[] urlToArray = null;
+//        Matcher matcher = pattern.matcher(site.getUrl());
+//        if (matcher.matches()) {
+//            urlToArray = site.getUrl().split("www.");
+//        }
+//
+//        if (urlToArray == null) {
+//            siteUrl = site.getUrl();
+//        } else {
+//            StringBuilder stringBuilder = new StringBuilder();
+//            for (String word : urlToArray) {
+//                stringBuilder.append(word);
+//            }
+//            siteUrl = stringBuilder.toString();
+//        }
+//
+//        return siteUrl;
+//    }
 }

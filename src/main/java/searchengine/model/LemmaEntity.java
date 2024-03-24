@@ -13,7 +13,7 @@ import java.util.List;
 @Getter
 @Setter
 @Accessors(chain = true)
-public class LemmaEntity implements Comparable<LemmaEntity>{
+public class LemmaEntity implements Comparable<LemmaEntity> {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
@@ -24,18 +24,17 @@ public class LemmaEntity implements Comparable<LemmaEntity>{
     private SiteEntity site;
 
     @NotNull
-    @Column(columnDefinition = "VARCHAR(255)")
+    @Column(columnDefinition = "VARCHAR(255)", name = "lemma_name")
     private String lemmaName;
 
-    @Column(name = "frequency")
     @NotNull
-    private int countOfWordsPerPage;
+    private int frequency;
 
     @OneToMany(mappedBy = "lemma", orphanRemoval = true)
     private List<IndexEntity> indexEntityList;
 
     @Override
     public int compareTo(LemmaEntity o) {
-        return this.getCountOfWordsPerPage() - o.getCountOfWordsPerPage();
+        return this.getFrequency() - o.getFrequency();
     }
 }
