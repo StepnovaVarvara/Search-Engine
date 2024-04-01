@@ -10,7 +10,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import searchengine.config.*;
-import searchengine.dto.indexing.PageResponse;
+import searchengine.dto.indexing.PageRsDto;
 import searchengine.model.*;
 import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
@@ -38,13 +38,13 @@ public class PageRecursiveTask extends RecursiveAction {
     private PageRecursiveTaskProperties pageRecursiveTaskProperties;
     private boolean isSite;
     private int siteId;
-    private PageResponse response;
+    private PageRsDto response;
     private FJP fjp;
 
     public PageRecursiveTask(String page, SiteRepository siteRepository, PageRepository pageRepository,
                              LuceneMorphology luceneMorphology, LemmaRepository lemmaRepository,
                              IndexRepository indexRepository, LemmaFinderSettings lemmaFinderSettings,
-                             boolean isSite, int siteId, PageResponse response,
+                             boolean isSite, int siteId, PageRsDto response,
                              ConnectionSettings connectionSettings, PageRecursiveTaskProperties pageRecursiveTaskProperties, FJP fjp) {
         this.page = page;
         this.siteRepository = siteRepository;
@@ -109,25 +109,23 @@ public class PageRecursiveTask extends RecursiveAction {
                         String page = element.attr("href");
                         if (page.endsWith("/") && page.length() != 1) {
                             page = StringUtils.substring(page, 0, page.length() - 1);
-                            // TODO необязаельная проверка, иногда попадаются одинаковые page,
-                            //  отличающиеся только слешом в конце (например, /contacts и /contacts/)
                         }
                         if (page.startsWith("/") && !page.contains("#") && !hasExtension(page) && !pageSet.contains(page)) {
                             if (!hasPageInDB(page, siteEntity)) {
                                 pageSet.add(page);
 
-                                PageResponse pageResponse = new PageResponse(getConnectToUrl(site.getUrl() + page));
+                                PageRsDto pageRsDto = new PageRsDto(getConnectToUrl(site.getUrl() + page));
 
-                                if (pageResponse.getStatusCode() < 400) {
+                                if (pageRsDto.getStatusCode() < 400) {
                                     PageRecursiveTask pageRecursiveTask = new PageRecursiveTask(site.getUrl() + page, siteRepository,
                                             pageRepository, luceneMorphology, lemmaRepository, indexRepository, lemmaFinderSettings,
-                                            false, siteEntity.getId(), pageResponse, connectionSettings, pageRecursiveTaskProperties, fjp);
+                                            false, siteEntity.getId(), pageRsDto, connectionSettings, pageRecursiveTaskProperties, fjp);
                                     pageRecursiveTask.fork();
 
                                     taskList.add(pageRecursiveTask);
                                 } else {
                                     siteEntity.setStatusIndexing(StatusType.FAILED);
-                                    siteEntity.setTextOfLastError(pageResponse.getStatusMessage());
+                                    siteEntity.setTextOfLastError(pageRsDto.getStatusMessage());
                                 }
                             }
                         }

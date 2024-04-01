@@ -10,7 +10,7 @@ import org.jsoup.Jsoup;
 import org.springframework.stereotype.Component;
 import searchengine.config.ConnectionSettings;
 import searchengine.config.LemmaFinderSettings;
-import searchengine.dto.indexing.PageResponse;
+import searchengine.dto.indexing.PageRsDto;
 import searchengine.model.IndexEntity;
 import searchengine.model.LemmaEntity;
 import searchengine.model.PageEntity;
@@ -100,12 +100,12 @@ public class LemmaFinder {
                 .split("\\s+");
     }
 
-    public void parsePageAndSaveEntitiesToDB(String pageUrl, PageResponse pageResponse, int siteId) {
+    public void parsePageAndSaveEntitiesToDB(String pageUrl, PageRsDto pageRsDto, int siteId) {
         PageEntity pageEntity = new PageEntity()
                 .setSiteEntity(getSiteEntity(siteId))
                 .setPagePath(getPagePath(pageUrl))
-                .setResponseCode(pageResponse.getStatusCode())
-                .setContentPage(pageResponse.getBody());
+                .setResponseCode(pageRsDto.getStatusCode())
+                .setContentPage(pageRsDto.getBody());
         pageRepository.save(pageEntity);
 
         String pageText = getTextByPage(pageUrl);

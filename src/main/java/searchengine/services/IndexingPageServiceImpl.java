@@ -7,8 +7,8 @@ import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.springframework.stereotype.Service;
 import searchengine.config.*;
-import searchengine.dto.indexPage.IndexingPageResponse;
-import searchengine.dto.indexing.PageResponse;
+import searchengine.dto.indexPage.IndexingPageRsDto;
+import searchengine.dto.indexing.PageRsDto;
 import searchengine.exceptions.BadRequestException;
 import searchengine.exceptions.IndexingPageException;
 import searchengine.model.*;
@@ -39,7 +39,7 @@ public class IndexingPageServiceImpl implements IndexingPageService {
     private final IndexRepository indexRepository;
 
     @Override
-    public IndexingPageResponse startIndexingPage(String pagePath) {
+    public IndexingPageRsDto startIndexingPage(String pagePath) {
         log.info("startIndexingPage > начал работу: {}", IndexProcessVariables.isRUNNING());
         try {
             new URL(pagePath);
@@ -50,14 +50,14 @@ public class IndexingPageServiceImpl implements IndexingPageService {
         if (!hasSiteInConfiguration(pagePath)) {
             throw new IndexingPageException(indexProperties.getMessages().getIndexPageError());
         } else {
-            IndexingPageResponse indexingPageResponse = new IndexingPageResponse();
-            indexingPageResponse.setResult(true);
+            IndexingPageRsDto indexingPageRsDto = new IndexingPageRsDto();
+            indexingPageRsDto.setResult(true);
 
-            PageResponse pageResponse = new PageResponse(getDocumentByUrl(pagePath));
-            if (pageResponse.getStatusCode() < 400) {
+            PageRsDto pageRsDto = new PageRsDto(getDocumentByUrl(pagePath));
+            if (pageRsDto.getStatusCode() < 400) {
 
                 if (hasPageInDB(getLink(pagePath))) {
-                    deleteLemmaEntityFromDB(pagePath); // TODO не догадалась как сделать проще
+                    deleteLemmaEntityFromDB(pagePath);
                     indexRepository.deleteAllByPage(pageRepository.findByPagePath(getLink(pagePath)));
                     pageRepository.delete(pageRepository.findByPagePath(getLink(pagePath)));
                 }
@@ -74,11 +74,11 @@ public class IndexingPageServiceImpl implements IndexingPageService {
                 LemmaFinder lemmaFinder = new LemmaFinder(lemmaFinderSettings, connectionSettings, siteRepository,
                         pageRepository, lemmaRepository, indexRepository);
 
-                lemmaFinder.parsePageAndSaveEntitiesToDB(pagePath, pageResponse, getSiteEntity(pagePath).getId());
+                lemmaFinder.parsePageAndSaveEntitiesToDB(pagePath, pageRsDto, getSiteEntity(pagePath).getId());
             }
 
             log.info("startIndexingPage > завершился: {}", IndexProcessVariables.isRUNNING());
-            return indexingPageResponse;
+            return indexingPageRsDto;
         }
     }
     public void deleteLemmaEntityFromDB(String pagePath) {

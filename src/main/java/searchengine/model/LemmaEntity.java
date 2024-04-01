@@ -24,7 +24,7 @@ public class LemmaEntity implements Comparable<LemmaEntity> {
     private SiteEntity site;
 
     @NotNull
-    @Column(columnDefinition = "VARCHAR(255)", name = "lemma_name")
+    @Column(columnDefinition = "VARCHAR(255)", name = "lemma")
     private String lemmaName;
 
     @NotNull

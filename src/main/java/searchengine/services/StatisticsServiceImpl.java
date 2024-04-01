@@ -9,7 +9,7 @@ import searchengine.config.IndexProperties;
 import searchengine.config.StatisticsProperties;
 import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
-import searchengine.dto.statistics.StatisticsResponse;
+import searchengine.dto.statistics.StatisticsRsDto;
 import searchengine.dto.statistics.TotalStatistics;
 import searchengine.model.SiteEntity;
 import searchengine.repository.LemmaRepository;
@@ -36,7 +36,7 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     @SneakyThrows
     @Override
-    public StatisticsResponse getStatistics() {
+    public StatisticsRsDto getStatistics() {
         log.info("getStatistics > начал работу");
 
         TotalStatistics total = new TotalStatistics();
@@ -83,7 +83,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             detailed.add(item);
         }
 
-        StatisticsResponse response = new StatisticsResponse();
+        StatisticsRsDto response = new StatisticsRsDto();
         StatisticsData data = new StatisticsData();
         data.setTotal(total);
         data.setDetailed(detailed);

@@ -5,7 +5,6 @@ import lombok.experimental.Accessors;
 
 @Data
 @Accessors(chain = true)
-public class ErrorResponse {
+public class IndexingRsDto {
     private boolean result;
-    private String error;
 }

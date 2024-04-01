@@ -5,7 +5,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import searchengine.config.*;
-import searchengine.dto.indexing.IndexingResponse;
+import searchengine.dto.indexing.IndexingRsDto;
 import searchengine.exceptions.IndexingException;
 import searchengine.model.SiteEntity;
 import searchengine.model.StatusType;
@@ -37,16 +37,14 @@ public class IndexingServiceImpl implements IndexingService {
 
     @SneakyThrows
     @Override
-    public IndexingResponse startIndexing() {
+    public IndexingRsDto startIndexing() {
         if (FJP.getInstance().getActiveThreadCount() > 0) {
             IndexProcessVariables.setRUNNING(false);
 
             Thread.sleep(1500);
             FJP.getInstance().shutdownNow();
 
-            while (FJP.getInstance().getActiveThreadCount() > 0) {
-                // TODO как сделать не бесконечный цикл? Только расчетным путем?
-            }
+            while (FJP.getInstance().getActiveThreadCount() > 0) {}
             log.info("Потоки FJP остановаились: {}", FJP.getInstance().getActiveThreadCount());
 
             Thread.sleep(1500);
@@ -54,14 +52,14 @@ public class IndexingServiceImpl implements IndexingService {
             log.info("startIndexing > повторно запустился");
             throw new IndexingException(indexProperties.getMessages().getStartError());
         } else {
-            IndexingResponse indexingResponse = new IndexingResponse();
-            indexingResponse.setResult(true);
+            IndexingRsDto indexingRsDto = new IndexingRsDto();
+            indexingRsDto.setResult(true);
             log.info("startIndexing > начал работу: {}", IndexProcessVariables.isRUNNING());
 
             indexingSites();
 
             log.info("startIndexing > завершился: {}", IndexProcessVariables.isRUNNING());
-            return indexingResponse;
+            return indexingRsDto;
         }
     }
 

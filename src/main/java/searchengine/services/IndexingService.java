@@ -1,8 +1,7 @@
 package searchengine.services;
 
-import org.springframework.data.domain.Page;
-import searchengine.dto.indexing.IndexingResponse;
+import searchengine.dto.indexing.IndexingRsDto;
 
 public interface IndexingService {
-    IndexingResponse startIndexing();
+    IndexingRsDto startIndexing();
 }

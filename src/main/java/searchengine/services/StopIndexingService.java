@@ -1,9 +1,7 @@
 package searchengine.services;
 
-import searchengine.dto.indexing.IndexingResponse;
-
-import java.util.concurrent.Future;
+import searchengine.dto.indexing.IndexingRsDto;
 
 public interface StopIndexingService {
-    IndexingResponse stopIndexing();
+    IndexingRsDto stopIndexing();
 }

@@ -6,7 +6,7 @@ import java.util.List;
 
 @lombok.Data
 @Accessors(chain = true)
-public class SearchResponse {
+public class SearchRsDto {
     private boolean result;
     private int count;
     private List<Data> data;

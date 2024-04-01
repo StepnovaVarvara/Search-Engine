@@ -12,7 +12,7 @@ import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
 import searchengine.config.*;
 import searchengine.dto.search.Data;
-import searchengine.dto.search.SearchResponse;
+import searchengine.dto.search.SearchRsDto;
 import searchengine.exceptions.BadRequestException;
 import searchengine.exceptions.SearchException;
 import searchengine.model.IndexEntity;
@@ -47,7 +47,7 @@ public class SearchServiceImpl implements SearchService {
     private final IndexRepository indexRepository;
 
     @Override
-    public SearchResponse search(String query, String site, int offset, int limit) {
+    public SearchRsDto search(String query, String site, int offset, int limit) {
         log.info("search > начал работу: {}", IndexProcessVariables.isRUNNING());
         if (query.equals(" ") || offset < 0 || limit < 1) {
             throw new BadRequestException(exceptionProperties.getExceptionMessages().getBadRequest());
@@ -64,8 +64,8 @@ public class SearchServiceImpl implements SearchService {
         }
         IndexProcessVariables.setRUNNING(true);
 
-        SearchResponse searchResponse = new SearchResponse();
-        searchResponse.setResult(true);
+        SearchRsDto searchRsDto = new SearchRsDto();
+        searchRsDto.setResult(true);
 
         List<SiteEntity> siteList = new ArrayList<>();
         if (site != null) {
@@ -102,7 +102,7 @@ public class SearchServiceImpl implements SearchService {
                 Collection<PageEntity> pageEntities = getPageList(lemma);
                 pageList.addAll(pageEntities);
             }
-            searchResponse.setCount(pageList.size());
+            searchRsDto.setCount(pageList.size());
         } else {
             for (int i = 0; i < lemmaEntityList.size(); i++) {
                 if (i == 0) {
@@ -116,7 +116,7 @@ public class SearchServiceImpl implements SearchService {
 
                 pageList = CollectionUtils.retainAll(pageList, currentPageList);
             }
-            searchResponse.setCount(pageList.size());
+            searchRsDto.setCount(pageList.size());
         }
 
         if (!pageList.isEmpty()) {
@@ -167,14 +167,14 @@ public class SearchServiceImpl implements SearchService {
                     totalDataList.add(sortedDataList.get(i));
                 }
             }
-            searchResponse.setData(totalDataList);
+            searchRsDto.setData(totalDataList);
         } else {
-            searchResponse.setData(new ArrayList<>());
+            searchRsDto.setData(new ArrayList<>());
         }
 
         IndexProcessVariables.setRUNNING(false);
         log.info("search > завершился: {}", IndexProcessVariables.isRUNNING());
-        return searchResponse;
+        return searchRsDto;
     }
 
     private List<Data> getDataList(SiteEntity site, HashMap<PageEntity, Float> pageMap, String query) {
@@ -288,7 +288,7 @@ public class SearchServiceImpl implements SearchService {
                 }
             }
         }
-        if (sentenceSet.isEmpty()) { // TODO сделано для проверки, чтобы не обнавлять БД, тк инф-я на сайтах обновляется
+        if (sentenceSet.isEmpty()) {
             return "Заданного слова уже нет на странице";
         }
 
