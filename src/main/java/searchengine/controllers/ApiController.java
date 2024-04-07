@@ -1,13 +1,17 @@
 package searchengine.controllers;
 
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import searchengine.dto.indexPage.IndexingPageRsDto;
 import searchengine.dto.indexing.IndexingRsDto;
 import searchengine.dto.search.SearchRsDto;
 import searchengine.dto.statistics.StatisticsRsDto;
 import searchengine.services.*;
+
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @RestController
@@ -25,9 +29,11 @@ public class ApiController {
     public StatisticsRsDto statistics() {
         return statisticsService.getStatistics();
     }
+    @SneakyThrows
     @GetMapping("/startIndexing")
-    public IndexingRsDto startIndexing() {
-        return indexingService.startIndexing();
+    public ResponseEntity<IndexingRsDto> startIndexing() {
+        CompletableFuture<Void> async = CompletableFuture.runAsync(indexingService::startIndexing);
+        return ResponseEntity.ok(new IndexingRsDto().setResult(true));
     }
 
     @GetMapping("/stopIndexing")

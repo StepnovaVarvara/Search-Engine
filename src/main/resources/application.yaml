@@ -14,7 +14,7 @@ spring:
       show-sql: false
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
-#    enable: false
+#    enable: true
 
 indexingSettings:
   sites:

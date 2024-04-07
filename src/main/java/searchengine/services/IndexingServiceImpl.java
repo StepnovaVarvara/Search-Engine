@@ -25,6 +25,7 @@ import java.util.List;
 public class IndexingServiceImpl implements IndexingService {
 
     private final IndexProperties indexProperties;
+    private final ThreadProperties threadProperties;
 
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
@@ -38,14 +39,14 @@ public class IndexingServiceImpl implements IndexingService {
     @SneakyThrows
     @Override
     public IndexingRsDto startIndexing() {
-        if (FJP.getInstance().getActiveThreadCount() > 0) {
+        if (FJP.getInstance(threadProperties.getThreadCount()).getActiveThreadCount() > 0) {
             IndexProcessVariables.setRUNNING(false);
 
             Thread.sleep(1500);
-            FJP.getInstance().shutdownNow();
+            FJP.getInstance(threadProperties.getThreadCount()).shutdownNow();
 
-            while (FJP.getInstance().getActiveThreadCount() > 0) {}
-            log.info("Потоки FJP остановаились: {}", FJP.getInstance().getActiveThreadCount());
+            while (FJP.getInstance(threadProperties.getThreadCount()).getActiveThreadCount() > 0) {}
+            log.info("Потоки FJP остановаились: {}", FJP.getInstance(threadProperties.getThreadCount()).getActiveThreadCount());
 
             Thread.sleep(1500);
             indexingSites();
@@ -77,7 +78,7 @@ public class IndexingServiceImpl implements IndexingService {
                 PageRecursiveTask pageRecursiveTask = new PageRecursiveTask(site, connectionSettings,
                         siteRepository, indexProperties, pageRepository, true,
                         lemmaRepository, indexRepository, lemmaFinderSettings, pageRecursiveTaskProperties);
-                FJP.getInstance().invoke(pageRecursiveTask);
+                FJP.getInstance(threadProperties.getThreadCount()).invoke(pageRecursiveTask);
             } else {
                 saveSiteToDB(site, StatusType.FAILED, indexProperties.getMessages().getStop());
             }
@@ -95,27 +96,4 @@ public class IndexingServiceImpl implements IndexingService {
                 .setTextOfLastError(textOfLastError)
                 .setStatusTime(LocalDateTime.now()));
     }
-//    private String getSiteUrl(Site site) {
-//        String siteUrl = null;
-//        String regex = ".*\\bwww.\\b.*";
-//        Pattern pattern = Pattern.compile(regex);
-//
-//        String[] urlToArray = null;
-//        Matcher matcher = pattern.matcher(site.getUrl());
-//        if (matcher.matches()) {
-//            urlToArray = site.getUrl().split("www.");
-//        }
-//
-//        if (urlToArray == null) {
-//            siteUrl = site.getUrl();
-//        } else {
-//            StringBuilder stringBuilder = new StringBuilder();
-//            for (String word : urlToArray) {
-//                stringBuilder.append(word);
-//            }
-//            siteUrl = stringBuilder.toString();
-//        }
-//
-//        return siteUrl;
-//    }
 }
