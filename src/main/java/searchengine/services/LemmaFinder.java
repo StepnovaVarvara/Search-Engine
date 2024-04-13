@@ -43,7 +43,6 @@ public class LemmaFinder {
         String[] arrayWords = convertingTextToArray(text);
 
         for (String word : arrayWords) {
-            //log.info("Процесс запущен? > {}", IndexProcessVariables.isRUNNING());
             if (!IndexProcessVariables.isRUNNING()) break;
 
             if (word.isBlank()) {

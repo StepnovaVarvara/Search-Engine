@@ -40,7 +40,6 @@ public class IndexingPageServiceImpl implements IndexingPageService {
 
     @Override
     public IndexingPageRsDto startIndexingPage(String pagePath) {
-        log.info("startIndexingPage > начал работу: {}", IndexProcessVariables.isRUNNING());
         try {
             new URL(pagePath);
         } catch (MalformedURLException e) {
@@ -50,6 +49,9 @@ public class IndexingPageServiceImpl implements IndexingPageService {
         if (!hasSiteInConfiguration(pagePath)) {
             throw new IndexingPageException(indexProperties.getMessages().getIndexPageError());
         } else {
+            IndexProcessVariables.setRUNNING(true);
+            log.info("startIndexingPage > начал работу: {}", IndexProcessVariables.isRUNNING());
+
             IndexingPageRsDto indexingPageRsDto = new IndexingPageRsDto();
             indexingPageRsDto.setResult(true);
 
@@ -77,6 +79,7 @@ public class IndexingPageServiceImpl implements IndexingPageService {
                 lemmaFinder.parsePageAndSaveEntitiesToDB(pagePath, pageRsDto, getSiteEntity(pagePath).getId());
             }
 
+            IndexProcessVariables.setRUNNING(false);
             log.info("startIndexingPage > завершился: {}", IndexProcessVariables.isRUNNING());
             return indexingPageRsDto;
         }

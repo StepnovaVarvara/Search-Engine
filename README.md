@@ -18,9 +18,10 @@ __Клиент:__
 __Сервер:__
 * Java 
 * Spring Boot
-* MySQL
+* PostgreSQL
 * Hibernate
 * Liquibase
+* SQL
 * Jsoup
 
 ## Инструкция по локальному запуску проекта - последовательность команд и действий
