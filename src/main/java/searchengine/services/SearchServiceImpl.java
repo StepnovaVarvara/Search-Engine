@@ -116,7 +116,6 @@ public class SearchServiceImpl implements SearchService {
 
                 pageList = CollectionUtils.retainAll(pageList, currentPageList);
             }
-            searchRsDto.setCount(pageList.size());
         }
 
         if (!pageList.isEmpty()) {
@@ -124,10 +123,11 @@ public class SearchServiceImpl implements SearchService {
 
             for (PageEntity page : pageList) {
                 float absoluteValue = 0;
-
-                List<IndexEntity> indexEntityList = indexRepository.findAllByPage(page);
-                for (IndexEntity index : indexEntityList) {
-                    absoluteValue += index.getCountOfLemmaForPage();
+                for (LemmaEntity lemma : lemmaEntityList) {
+                    List<IndexEntity> indexEntityList = indexRepository.findAllByPageAndLemma(page, lemma);
+                    for (IndexEntity index : indexEntityList) {
+                        absoluteValue += index.getCountOfLemmaForPage();
+                    }
                 }
                 absolutValuePageMap.put(page, absoluteValue);
             }
@@ -143,12 +143,15 @@ public class SearchServiceImpl implements SearchService {
             List<Data> dataList = new ArrayList<>();
 
             if (siteList.size() == 1) {
+                log.info("Начали формировать даталист из if");
                 dataList.addAll(getDataList(siteList.get(0), relativePageMap, query));
             } else {
                 for (SiteEntity siteEntity : siteList) {
+                    log.info("Начали формировать даталист из else");
                     dataList.addAll(getDataList(siteEntity, relativePageMap, query));
                 }
             }
+            searchRsDto.setCount(dataList.size());
 
             Comparator<Data> compareByRelevance = Comparator.comparing(Data::getRelevance);
             List<Data> sortedDataList = dataList.stream().sorted(compareByRelevance.reversed()).toList();
@@ -181,21 +184,27 @@ public class SearchServiceImpl implements SearchService {
         List<Data> dataList = new ArrayList<>();
 
         for (Map.Entry<PageEntity, Float> pair : pageMap.entrySet()) {
-            Connection.Response response = getConnectToUrl(site.getSiteUrl() + pair.getKey().getPagePath());
-            if (response.statusCode() >= 400) {
-                continue;
+            if (site.equals(pair.getKey().getSiteEntity())) {
+                Connection.Response response = getConnectToUrl(site.getSiteUrl() + pair.getKey().getPagePath());
+                if (response.statusCode() >= 400) {
+                    continue;
+                }
+                String snippet = getSnippet(query, site.getSiteUrl(), pair.getKey());
+                if (snippet.equals("Заданного слова уже нет на странице")) {
+                    continue;
+                }
+
+                Data data = new Data()
+                        .setSiteUrl(site.getSiteUrl())
+                        .setSiteName(site.getSiteName())
+                        .setUri(pair.getKey().getPagePath())
+                        .setTitle(getTitle(site.getSiteUrl(), pair.getKey()))
+                        .setSnippet(snippet)
+                        .setRelevance(pair.getValue());
+
+                dataList.add(data);
+                log.info("Добавили объект в dataList: {}", data);
             }
-
-            Data data = new Data()
-                    .setSiteUrl(site.getSiteUrl())
-                    .setSiteName(site.getSiteName())
-                    .setUri(pair.getKey().getPagePath())
-                    .setTitle(getTitle(site.getSiteUrl(), pair.getKey()))
-                    .setSnippet(getSnippet(query, site.getSiteUrl(), pair.getKey()))
-                    .setRelevance(pair.getValue());
-
-            dataList.add(data);
-            log.info("Добавили объект в dataList: {}", data);
         }
         return dataList;
     }

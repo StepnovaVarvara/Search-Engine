@@ -18,12 +18,12 @@ spring:
 
 indexingSettings:
   sites:
-    - url: https://www.skillbox.ru
+    - url: https://www.paleo.ru
+      name: Палеонтологический музей
+    - url: https://skillbox.ru
       name: Skillbox
-#    - url: https://www.worldclass.ru
-#      name: World Class
-#    - url: https://playback.ru
-#      name: PlayBack.Ru
+#    - url: https://clati-cfo.ru
+#      name: ЦЛАТИ по ЦФО
 
   messages:
     stop: Индексация остановлена пользователем
