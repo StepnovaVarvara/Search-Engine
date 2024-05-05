@@ -3,12 +3,6 @@ package searchengine.services;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.CollectionUtils;
-import org.jsoup.Connection;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
 import searchengine.config.*;
 import searchengine.dto.search.Data;
@@ -26,8 +20,6 @@ import searchengine.repository.SiteRepository;
 import searchengine.variables.IndexProcessVariables;
 
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -77,11 +69,11 @@ public class SearchServiceImpl implements SearchService {
         LemmaFinder lemmaFinder = new LemmaFinder(lemmaFinderSettings, connectionSettings,
                 siteRepository, pageRepository, lemmaRepository, indexRepository);
 
-        HashMap<String, Integer> lemmasMap = lemmaFinder.searchingLemmasAndTheirCount(query);
+        HashMap<String, Integer> queryLemmasMap = lemmaFinder.searchingLemmasAndTheirCount(query);
 
         List<LemmaEntity> lemmaEntityList = new ArrayList<>();
 
-        for (Map.Entry<String, Integer> pair : lemmasMap.entrySet()) {
+        for (Map.Entry<String, Integer> pair : queryLemmasMap.entrySet()) {
             List<LemmaEntity> lemmaEntities = Optional.ofNullable(
                             lemmaRepository.findAllByLemmaNameAndSiteIn(pair.getKey(), siteList))
                     .orElse(new ArrayList<>());
@@ -95,69 +87,39 @@ public class SearchServiceImpl implements SearchService {
 
         Collections.sort(lemmaEntityList);
 
-        Collection<PageEntity> pageList = new ArrayList<>();
-
-        if (hasOneWord(query)) {
-            for (LemmaEntity lemma : lemmaEntityList) {
-                Collection<PageEntity> pageEntities = getPageList(lemma);
-                pageList.addAll(pageEntities);
-            }
-            searchRsDto.setCount(pageList.size());
-        } else {
-            for (int i = 0; i < lemmaEntityList.size(); i++) {
-                if (i == 0) {
-                    pageList = getPageList(lemmaEntityList.get(i));
-                }
-                if (lemmaEntityList.get(i).equals(lemmaEntityList.get(i++))) {
-                    continue;
-                }
-
-                Collection<PageEntity> currentPageList = getPageList(lemmaEntityList.get(i));
-
-                pageList = CollectionUtils.retainAll(pageList, currentPageList);
-            }
+        List<PageEntity> pageList = new ArrayList<>();
+        for (LemmaEntity lemma : lemmaEntityList) {
+            List<PageEntity> pageEntities = getPageList(lemma);
+            pageList.addAll(pageEntities);
         }
 
         if (!pageList.isEmpty()) {
-            HashMap<PageEntity, Float> absolutValuePageMap = new HashMap<>();
+            Map<PageEntity, Float> absolutValuePageMap = getAbsolutValuePageMap(pageList, lemmaEntityList);
 
-            for (PageEntity page : pageList) {
-                float absoluteValue = 0;
-                for (LemmaEntity lemma : lemmaEntityList) {
-                    List<IndexEntity> indexEntityList = indexRepository.findAllByPageAndLemma(page, lemma);
-                    for (IndexEntity index : indexEntityList) {
-                        absoluteValue += index.getCountOfLemmaForPage();
-                    }
-                }
-                absolutValuePageMap.put(page, absoluteValue);
-            }
             Optional<Map.Entry<PageEntity, Float>> maxEntry = absolutValuePageMap.entrySet()
                     .stream().max(Map.Entry.comparingByValue());
             Float maxAbsoluteValue = maxEntry.get().getValue();
 
-            HashMap<PageEntity, Float> relativePageMap = new HashMap<>();
+            HashMap<PageEntity, Float> relativeValuePageMap = new HashMap<>();
             for (Map.Entry<PageEntity, Float> pair : absolutValuePageMap.entrySet()) {
-                relativePageMap.put(pair.getKey(), pair.getValue() / maxAbsoluteValue);
+                relativeValuePageMap.put(pair.getKey(), pair.getValue() / maxAbsoluteValue);
             }
 
             List<Data> dataList = new ArrayList<>();
-
             if (siteList.size() == 1) {
-                log.info("Начали формировать даталист из if");
-                dataList.addAll(getDataList(siteList.get(0), relativePageMap, query));
+                dataList.addAll(getDataList(siteList.get(0), relativeValuePageMap, query));
             } else {
                 for (SiteEntity siteEntity : siteList) {
-                    log.info("Начали формировать даталист из else");
-                    dataList.addAll(getDataList(siteEntity, relativePageMap, query));
+                    dataList.addAll(getDataList(siteEntity, relativeValuePageMap, query));
                 }
             }
             searchRsDto.setCount(dataList.size());
 
             Comparator<Data> compareByRelevance = Comparator.comparing(Data::getRelevance);
             List<Data> sortedDataList = dataList.stream().sorted(compareByRelevance.reversed()).toList();
+            searchRsDto.setData(sortedDataList);
 
             List<Data> totalDataList = new ArrayList<>();
-
             if (offset > sortedDataList.size()) {
                 throw new SearchException(indexProperties.getMessages().getOffsetError());
             }
@@ -180,17 +142,30 @@ public class SearchServiceImpl implements SearchService {
         return searchRsDto;
     }
 
+    private Map<PageEntity, Float> getAbsolutValuePageMap(List<PageEntity> pageList, List<LemmaEntity> lemmaEntityList) {
+        HashMap<PageEntity, Float> absolutValuePageMap = new HashMap<>();
+        for (PageEntity page : pageList) {
+            float absoluteValue = 0;
+            for (LemmaEntity lemma : lemmaEntityList) {
+                List<IndexEntity> indexEntityList = indexRepository.findAllByPageAndLemma(page, lemma);
+                for (IndexEntity index : indexEntityList) {
+                    absoluteValue += index.getCountOfLemmaForPage();
+                }
+            }
+            absolutValuePageMap.put(page, absoluteValue);
+        }
+
+        return absolutValuePageMap;
+    }
+
     private List<Data> getDataList(SiteEntity site, HashMap<PageEntity, Float> pageMap, String query) {
         List<Data> dataList = new ArrayList<>();
 
         for (Map.Entry<PageEntity, Float> pair : pageMap.entrySet()) {
-            if (site.equals(pair.getKey().getSiteEntity())) {
-                Connection.Response response = getConnectToUrl(site.getSiteUrl() + pair.getKey().getPagePath());
-                if (response.statusCode() >= 400) {
-                    continue;
-                }
-                String snippet = getSnippet(query, site.getSiteUrl(), pair.getKey());
-                if (snippet.equals("Заданного слова уже нет на странице")) {
+            if (site.getId() == pair.getKey().getSiteEntity().getId()) {
+
+                String snippet = getSnippet(query, pair.getKey());
+                if (snippet == null) {
                     continue;
                 }
 
@@ -198,7 +173,7 @@ public class SearchServiceImpl implements SearchService {
                         .setSiteUrl(site.getSiteUrl())
                         .setSiteName(site.getSiteName())
                         .setUri(pair.getKey().getPagePath())
-                        .setTitle(getTitle(site.getSiteUrl(), pair.getKey()))
+                        .setTitle(getTitle(pair.getKey()))
                         .setSnippet(snippet)
                         .setRelevance(pair.getValue());
 
@@ -206,6 +181,7 @@ public class SearchServiceImpl implements SearchService {
                 log.info("Добавили объект в dataList: {}", data);
             }
         }
+
         return dataList;
     }
 
@@ -235,10 +211,10 @@ public class SearchServiceImpl implements SearchService {
         return indexedSiteList.size() == indexProperties.getSites().size();
     }
 
-    private Collection<PageEntity> getPageList(LemmaEntity lemmaEntity) {
+    private List<PageEntity> getPageList(LemmaEntity lemmaEntity) {
         List<IndexEntity> indexEntityList = indexRepository.findAllByLemma(lemmaEntity);
 
-        Collection<PageEntity> pageList = new ArrayList<>();
+        List<PageEntity> pageList = new ArrayList<>();
         for (IndexEntity indexEntity : indexEntityList) {
             PageEntity pageEntity = pageRepository.findById(indexEntity.getPage().getId());
             pageList.add(pageEntity);
@@ -247,86 +223,63 @@ public class SearchServiceImpl implements SearchService {
     }
 
     @SneakyThrows
-    private Connection.Response getConnectToUrl(String url) {
-        return Jsoup.connect(url)
-                .ignoreHttpErrors(true)
-                .userAgent(connectionSettings.getUserAgent())
-                .referrer(connectionSettings.getReferrer())
-                .execute();
-    }
+    private String getTitle(PageEntity page) {
+        String pageContent = pageRepository.findByPagePathAndSiteEntity(page.getPagePath(), page.getSiteEntity()).getContentPage();
+        int indexOfStartTitle = pageContent.indexOf("<title>");
+        int indexOfEndTitle = pageContent.indexOf("</title>");
 
-    @SneakyThrows
-    private String getTitle(String site, PageEntity page) {
-        Connection.Response response = getConnectToUrl(site + page.getPagePath());
-
-        Document document = response.parse();
-
-        String title = null;
-        Elements elements = document.select("title");
-        for (Element element : elements) {
-            title = element.text();
-        }
-        return title;
-    }
-
-    @SneakyThrows
-    private String getSnippet(String query, String site, PageEntity page) {
-        Connection.Response response = getConnectToUrl(site + page.getPagePath());
-
-        String document = response.parse().text().toLowerCase();
-        String[] documentToArray = document.split("[.!?]");
-        Set<String> sentenceSet = new HashSet<>(List.of(documentToArray));
-
-        String[] queryToArray;
-        if (hasOneWord(query)) {
-            queryToArray = new String[]{query};
+        StringBuilder title;
+        if (indexOfStartTitle == -1) {
+            return "У страницы нет заголовка";
         } else {
-            queryToArray = query.split(" ");
+            title = new StringBuilder(pageContent.substring(indexOfStartTitle + 7, indexOfEndTitle));
         }
 
-        for (String word : queryToArray) {
-            String regex = ".*\\b" + word + "\\b.*";
-            Pattern pattern = Pattern.compile(regex);
-
-            Iterator<String> iterator = sentenceSet.iterator();
-            while (iterator.hasNext()) {
-                String nextSentence = iterator.next();
-                Matcher matcher = pattern.matcher(nextSentence);
-                if (!matcher.matches()) {
-                    iterator.remove();
-                }
-            }
-        }
-        if (sentenceSet.isEmpty()) {
-            return "Заданного слова уже нет на странице";
-        }
-
-        String sentence = sentenceSet.iterator().next().trim();
-
-        String[] sentenceToArray = sentence.split(" ");
-
-        StringBuilder stringBuilder = getBoldFont(sentenceToArray, queryToArray);
-
-        return stringBuilder.toString().trim();
+        return title.toString();
     }
 
-    private StringBuilder getBoldFont(String[] sentenceToArray, String[] queryToArray) {
-        ArrayList<String> wordList = new ArrayList<>(List.of(sentenceToArray));
+    @SneakyThrows
+    private String getSnippet(String query, PageEntity page) {
+        String pageContent = pageRepository
+                .findByPagePathAndSiteEntity(page.getPagePath(),
+                        page.getSiteEntity()).getContentPage().toLowerCase()
+                .replaceAll("[^А-Яа-яёЁ]", " ").replaceAll("\\s+(.*?)", " ");
 
-        for (String word : queryToArray) {
-            ListIterator<String> iteratorList = wordList.listIterator();
-            while (iteratorList.hasNext()) {
-                String string = iteratorList.next();
-                if (word.equals(string) || (word + ",").equals(string)) {
-                    iteratorList.set("<b>" + word + "</b>");
-                }
-            }
+        int startIndex = pageContent.indexOf(query);
+        if (startIndex == -1) {
+            return null;
         }
+
+        int endIndex = pageContent.indexOf(" ", startIndex);
+        String currentWord = pageContent.substring(startIndex, endIndex);
+
+        if (!currentWord.equals(query) && (pageContent.charAt(startIndex + query.length()) != ' '
+                || pageContent.charAt(startIndex - 1) != ' ')) {
+            return null;
+        }
+
+        StringBuilder snippet = null;
+        if (startIndex < 150) {
+            snippet = new StringBuilder(pageContent.substring(0, startIndex + 150));
+        }
+        if (pageContent.length() - startIndex < 150) {
+            snippet = new StringBuilder(pageContent.substring(startIndex - 150));
+        }
+        if (startIndex >= 150 && pageContent.length() - startIndex >= 150) {
+            snippet = new StringBuilder(pageContent.substring(startIndex - 150, startIndex + 150));
+        }
+
+        return getBoldFont(snippet, query).toString();
+    }
+
+    private StringBuilder getBoldFont(StringBuilder snippet, String query) {
+        int index = snippet.indexOf(query);
 
         StringBuilder stringBuilder = new StringBuilder();
-        for (String word : wordList) {
-            stringBuilder.append(word + " ");
-        }
+        stringBuilder.append(snippet.substring(0, index))
+                .append("<b>" + query + "</b>")
+                .append(snippet.substring(index + query.length(), snippet.length()));
+
         return stringBuilder;
     }
 }
